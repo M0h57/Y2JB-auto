@@ -3,9 +3,11 @@
     
     This software may be modified and distributed under the terms
     of the MIT license.  See the LICENSE file for details.
+    
+    Modified to autoload: lapse.js -> elfloader.js -> etahen
 */
 
-const version_string = "Y2JB 1.2 by Gezine";
+const version_string = "Y2JB 1.2 by Gezine (Autoload Mod)";
 
 function load_localscript(src) {
     return new Promise((resolve, reject) => {
@@ -498,10 +500,6 @@ function trigger() {
         write64_unstable(fake_return_value_elements + 0x00n, small_elem_map);
         write64_unstable(fake_return_value_elements + 0x08n, small_elem_length_field);
         
-        // Create fake return_value_buf ArrayBuffer elements
-        write64_unstable(fake_return_value_buffer_elements + 0x00n, buffer_elem_map);
-        write64_unstable(fake_return_value_buffer_elements + 0x08n, buffer_elem_len);
-        
         // Create fake return_value_buf ArrayBuffer
         write64_unstable(fake_return_value_buffer_obj + 0x00n, small_buffer_map);
         write64_unstable(fake_return_value_buffer_obj + 0x08n, small_buffer_props);
@@ -907,6 +905,83 @@ function trigger() {
         // MAIN EXECUTION //
         ////////////////////
         
+        // AUTOLOAD CHAIN: lapse.js -> elfloader.js -> etahen
+        await log("========================================");
+        await log("Starting autoload payload chain...");
+        await log("========================================");
+        
+        try {
+            // Step 1: Load lapse.js (kernel exploit)
+            await log("[1/3] Loading lapse.js (kernel exploit)...");
+            try {
+                await load_localscript('lapse.js');
+                await log("[1/3] lapse.js loaded successfully");
+                // Small delay to let kernel exploit settle
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            } catch (e) {
+                await log("[1/3] ERROR: Failed to load lapse.js - " + e.message);
+                throw new Error("Lapse kernel exploit failed to load");
+            }
+            
+            // Step 2: Load elfloader.js
+            await log("[2/3] Loading elfloader.js...");
+            try {
+                await load_localscript('elfloader.js');
+                await log("[2/3] elfloader.js loaded successfully");
+                // Small delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (e) {
+                await log("[2/3] ERROR: Failed to load elfloader.js - " + e.message);
+                throw new Error("ELF loader failed to load");
+            }
+            
+            // Step 3: Load etahen payload
+            await log("[3/3] Loading etahen payload...");
+            try {
+                // Check if etahen.js exists first (JavaScript version)
+                try {
+                    await load_localscript('etahen.js');
+                    await log("[3/3] etahen.js loaded successfully");
+                } catch (jsError) {
+                    // If .js doesn't exist, try loading .elf via elfloader
+                    await log("[3/3] etahen.js not found, trying etahen.elf...");
+                    
+                    const response = await fetch('etahen.elf');
+                    if (!response.ok) {
+                        throw new Error("etahen.elf not found");
+                    }
+                    
+                    const elfData = await response.arrayBuffer();
+                    
+                    // Use the elfloader function that should be loaded
+                    if (typeof load_elf !== 'undefined') {
+                        await load_elf(new Uint8Array(elfData));
+                        await log("[3/3] etahen.elf loaded via ELF loader");
+                    } else {
+                        throw new Error("ELF loader function not available");
+                    }
+                }
+                
+                await log("========================================");
+                await log("AUTOLOAD CHAIN COMPLETE!");
+                await log("All payloads loaded successfully");
+                await log("========================================");
+                send_notification("Autoload Complete!\nlapse -> elfloader -> etahen\nJailbreak ready!");
+                
+            } catch (e) {
+                await log("[3/3] ERROR: Failed to load etahen - " + e.message);
+                throw new Error("etaHEN payload failed to load");
+            }
+            
+        } catch (chainError) {
+            await log("========================================");
+            await log("AUTOLOAD CHAIN FAILED!");
+            await log("Error: " + chainError.message);
+            await log("========================================");
+            send_notification("Autoload Failed!\nCheck console for details");
+        }
+        
+        // Load remote JS loader for manual payloads if needed
         await load_localscript('remotejsloader.js');
         
     } catch (e) {                
@@ -914,4 +989,8 @@ function trigger() {
         await log(e.stack);
     }
     
-})();
+})(); elements
+        write64_unstable(fake_return_value_buffer_elements + 0x00n, buffer_elem_map);
+        write64_unstable(fake_return_value_buffer_elements + 0x08n, buffer_elem_len);
+        
+        // Create fake return_value_buf ArrayBuffer
